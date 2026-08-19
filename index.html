@@ -1,0 +1,42 @@
+<!doctype html><html lang="es"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#1b7f4b"><link rel="manifest" href="manifest.json"><title>BioIA 2.0</title>
+<style>
+body{font-family:system-ui;margin:0;background:#f4f8f5;color:#17231e}header{background:#176b40;color:white;padding:24px;border-radius:0 0 24px 24px}main{max-width:950px;margin:auto;padding:16px}.card{background:white;padding:18px;margin:14px 0;border-radius:18px;box-shadow:0 3px 15px #0001}h1{margin:0}h2{color:#176b40}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}label{font-weight:650}input,select{width:100%;padding:11px;margin-top:5px;border:1px solid #ccd8d1;border-radius:10px;font-size:16px;box-sizing:border-box}button{padding:12px;border:0;border-radius:10px;background:#176b40;color:white;font-weight:700;margin-top:12px}.primary{width:100%}.result{background:#e9f7ef;border-left:5px solid #176b40;padding:14px;margin-top:14px}.metric{font-size:30px;font-weight:800;color:#176b40}.table{overflow:auto}table{border-collapse:collapse;width:100%;min-width:760px}th,td{padding:9px;border-bottom:1px solid #ddd;text-align:center}th{background:#edf6f0}.rank{display:flex;justify-content:space-between;padding:10px;border-bottom:1px solid #eee}.note{background:#fff8e8;padding:12px;border-left:4px solid #d99b18}canvas{width:100%}@media(max-width:620px){.grid{grid-template-columns:1fr}}
+</style></head><body>
+<header><h1>🌱⚡ BioIA 2.0</h1><div>Predicción biofotovoltaica + análisis experimental</div></header>
+<main>
+<section class="card"><h2>🤖 Analizar planta</h2><div class="grid">
+<label>Planta<select id="p"></select></label><label>Hojas<input id="h" type="number" min="0"></label>
+<label>Tamaño<select id="t"><option>Pequeñas</option><option>Medianas</option><option>Grandes/largas</option><option>No aplica (espinas)</option></select></label>
+<label>Humedad<select id="m"><option>Media-baja</option><option>Media</option><option>Media-alta</option></select></label>
+<label>Estado<select id="e"><option>Verde y sana</option><option>Verde</option></select></label>
+<label>Luz<select id="l"><option>Luz solar</option></select></label>
+<label>Maceta<select id="c"><option>Mediana</option><option>Grande</option></select></label>
+<label>Tierra<select id="soil"><option>Mucha</option></select></label>
+<label>Voltaje real (V)<input id="v" type="number" step="0.01"></label></div>
+<button class="primary" onclick="analizar()">🤖 Generar predicción experimental</button><div id="res" class="result" style="display:none"></div>
+<div class="note">Con 7 observaciones, BioIA se presenta como <b>modelo predictivo experimental</b>; no demuestra causalidad ni un entrenamiento de IA robusto.</div></section>
+
+<section class="card"><h2>📊 Datos reales</h2><div class="table"><table><thead><tr><th>Planta</th><th>Especie</th><th>Hojas</th><th>Tamaño</th><th>Humedad</th><th>Maceta</th><th>Voltaje</th></tr></thead><tbody id="tb"></tbody></table></div></section>
+<section class="card"><h2>🏆 Ranking</h2><div id="rk"></div><canvas id="g" width="900" height="330"></canvas></section>
+<section class="card"><button onclick="csv()">💾 Exportar CSV</button></section>
+</main>
+<script>
+const D=[
+["P1","Fresa",6,"Pequeñas","Media-alta","Verde y sana","Luz solar","Mediana","Mucha",.38],
+["P2","Cactus",0,"No aplica (espinas)","Media-baja","Verde y sana","Luz solar","Mediana","Mucha",.40],
+["P3","Jade",35,"Medianas","Media","Verde y sana","Luz solar","Mediana","Mucha",.43],
+["P4","Sedum",50,"Medianas","Media","Verde y sana","Luz solar","Mediana","Mucha",.45],
+["P5","Suculenta",27,"Pequeñas","Media-alta","Verde y sana","Luz solar","Mediana","Mucha",.43],
+["P6","Cintilla / Lazo de amor",40,"Grandes/largas","Media","Verde y sana","Luz solar","Grande","Mucha",.50],
+["P7","Prímula",8,"Grandes/largas","Media-alta","Verde y sana","Luz solar","Grande","Mucha",.48]];
+const $=x=>document.getElementById(x);
+function init(){ $("p").innerHTML=D.map(x=>`<option value="${x[0]}">${x[0]} — ${x[1]}</option>`).join("");$("p").onchange=load;load();render()}
+function load(){let x=D.find(a=>a[0]==$("p").value);$("h").value=x[2];$("t").value=x[3];$("m").value=x[4];$("e").value=x[5];$("l").value=x[6];$("c").value=x[7];$("soil").value=x[8];$("v").value=x[9]}
+function size(x){return x.includes("Grande")?3:x.includes("Mediana")?2:1}
+function predict(x){let q=D.map(r=>{let d=Math.min(Math.abs(x.h-r[2])/40,1)*.25+(size(x.t)==size(r[3])?0:.18)+(x.m==r[4]?0:.12)+(x.c==r[7]?0:.18);return [r,1/(.08+d)]});let sw=q.reduce((a,b)=>a+b[1],0),p=q.reduce((a,b)=>a+b[0][9]*b[1],0)/sw;let sd=Math.sqrt(q.reduce((a,b)=>a+b[1]*(b[0][9]-p)**2,0)/sw),margin=Math.max(.025,Math.min(.07,sd*1.5));return[p,Math.max(0,p-margin),p+margin]}
+function analizar(){let x={h:+$("h").value||0,t:$("t").value,m:$("m").value,c:$("c").value};let [p,a,b]=predict(x),real=parseFloat($("v").value);$("res").style.display="block";$("res").innerHTML=`<h3>🔮 Resultado</h3><div class="metric">${a.toFixed(2)}–${b.toFixed(2)} V</div><p>Estimación central: <b>${p.toFixed(2)} V</b></p>${Number.isNaN(real)?"<p>Introduce el voltaje real para comparar.</p>":`<p>Voltaje real: <b>${real.toFixed(2)} V</b></p><p>${real>=a&&real<=b?"🟢 La medición está dentro del rango estimado.":"🔵 Hay una diferencia experimental de "+Math.abs(real-p).toFixed(2)+" V."}</p>`}<small>Estimación basada en similitud con los 7 registros experimentales.</small>`}
+function render(){ $("tb").innerHTML=D.map(x=>`<tr><td>${x[0]}</td><td>${x[1]}</td><td>${x[2]||"Espinas"}</td><td>${x[3]}</td><td>${x[4]}</td><td>${x[7]}</td><td><b>${x[9].toFixed(2)} V</b></td></tr>`).join("");let a=[...D].sort((x,y)=>y[9]-x[9]);$("rk").innerHTML=a.map((x,i)=>`<div class="rank"><b>${i+1}. ${x[0]} — ${x[1]}</b><span>${x[9].toFixed(2)} V</span></div>`).join("");let ctx=$("g").getContext("2d"),w=900,h=330;ctx.clearRect(0,0,w,h);let bw=90;a.forEach((x,i)=>{let bh=x[9]/.55*230,xx=65+i*115,yy=275-bh;ctx.fillStyle="#1b7f4b";ctx.fillRect(xx,yy,bw,bh);ctx.fillStyle="#17231e";ctx.textAlign="center";ctx.fillText(x[0],xx+bw/2,300);ctx.fillText(x[9].toFixed(2),xx+bw/2,yy-7)})}
+function csv(){let s="Planta,Especie,Hojas,Tamaño,Humedad,Estado,Luz,Maceta,Tierra,Voltaje\n"+D.map(x=>x.join(",")).join("\n");let a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+s],{type:"text/csv"}));a.download="BioIA_datos.csv";a.click()}init();
+</script></body></html>
